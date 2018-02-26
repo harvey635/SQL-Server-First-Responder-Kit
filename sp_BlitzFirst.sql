@@ -1444,10 +1444,10 @@ BEGIN
             'Plan Cache Erased Recently' AS Finding,
             'http://www.BrentOzar.com/askbrent/plan-cache-erased-recently/' AS URL,
             'The oldest query in the plan cache was created at ' + CAST(creation_time AS NVARCHAR(50)) + '. ' + @LineFeed + @LineFeed
-                + 'This indicates that someone ran DBCC FREEPROCCACHE at that time,' + @LineFeed
-                + 'Giving SQL Server temporary amnesia. Now, as queries come in,' + @LineFeed
-                + 'SQL Server has to use a lot of CPU power in order to build execution' + @LineFeed
-                + 'plans and put them in cache again. This causes high CPU loads.' AS Details,
+                + 'This indicates that someone ran DBCC FREEPROCCACHE or DBCC FLUSHPROCINDB(<dbid>),' + @LineFeed
+                + 'at that time, giving SQL Server temporary amnesia. Now, as queries come in,' + @LineFeed
+                + 'SQL Server has to use a lot of CPU power in order to build execution plans' + @LineFeed
+                + 'and put them in cache again. This causes high CPU loads.' AS Details,
             'Find who did that, and stop them from doing it again.' AS HowToStopIt
         FROM sys.dm_exec_query_stats
         ORDER BY creation_time
