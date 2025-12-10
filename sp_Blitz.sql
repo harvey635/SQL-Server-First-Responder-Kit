@@ -6802,8 +6802,8 @@ IF @ProductVersionMajor >= 10
 							       'https://www.BrentOzar.com/go/ag' AS URL,
 							       ag.name + N' AG replica server ' + 
 										ar.replica_server_name + N' is ' + 
-										CASE WHEN DATEDIFF(SECOND, drs.last_commit_time, ps.last_commit_time) < 200 THEN (CAST(DATEDIFF(SECOND, drs.last_commit_time, ps.last_commit_time) AS NVARCHAR(10)) + N' seconds ')
-										ELSE (CAST(DATEDIFF(MINUTE, drs.last_commit_time, ps.last_commit_time) AS NVARCHAR(10)) + N' minutes ') END
+										CASE WHEN DATEDIFF(SECOND, ISNULL (drs.last_commit_time, drs.Last_hardened_time), ps.last_commit_time) < 200 THEN (CAST(DATEDIFF(SECOND, drs.last_commit_time, ps.last_commit_time) AS NVARCHAR(10)) + N' seconds ')
+										ELSE (CAST(DATEDIFF(MINUTE, ISNULL (drs.last_commit_time, drs.Last_hardened_time), ps.last_commit_time) AS NVARCHAR(10)) + N' minutes ') END
 										+ N' behind the primary.'
 										AS details
 							FROM sys.dm_hadr_database_replica_states AS drs
@@ -6814,7 +6814,7 @@ IF @ProductVersionMajor >= 10
 								AND drs.database_id = ps.database_id
 								AND ps.is_local = 1 /* Primary */
 							WHERE drs.is_local = 0 /* Secondary */
-							  AND DATEDIFF(SECOND, drs.last_commit_time, ps.last_commit_time) > 60;
+							  AND DATEDIFF(SECOND,ISNULL (drs.last_commit_time, drs.Last_hardened_time), ps.last_commit_time) > 60
 					END;
 
 
