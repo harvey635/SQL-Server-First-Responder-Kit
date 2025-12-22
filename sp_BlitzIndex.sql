@@ -4448,7 +4448,7 @@ BEGIN
                 INSERT    #BlitzIndexResults ( check_id, index_sanity_id, Priority, findings_group, finding, [database_name], URL, details, index_definition,
                                                index_usage_summary, index_size_summary, create_tsql, more_info, sample_query_plan )
                         
-                        SELECT check_id, t.index_sanity_id, t.check_id, t.findings_group, t.finding, t.[Database Name], t.URL, t.details, t.[definition],
+                        SELECT check_id, t.index_sanity_id, t.Priority, t.findings_group, t.finding, t.[Database Name], t.URL, t.details, t.[definition],
                                 index_estimated_impact, t.index_size_summary, create_tsql, more_info, sample_query_plan
                         FROM
                         (
