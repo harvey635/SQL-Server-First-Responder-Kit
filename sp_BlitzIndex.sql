@@ -4382,6 +4382,29 @@ BEGIN
                             )
 						OPTION    ( RECOMPILE );
 
+
+                RAISERROR(N'check_id 128: Heaps with PAGE compression.', 0,1) WITH NOWAIT;
+                INSERT    #BlitzIndexResults ( check_id, index_sanity_id, Priority, findings_group, finding, [database_name], URL, details, index_definition,
+                                               secret_columns, index_usage_summary, index_size_summary )
+                        SELECT  128 AS check_id, 
+                                i.index_sanity_id,
+                                100 AS Priority,
+                                N'Indexes Worth Reviewing' AS findings_group,
+                                N'Heap with PAGE compression' AS finding, 
+                                [database_name] AS [Database Name],
+                                N'https://vladdba.com/PageCompressedHeaps' AS URL,
+                                N'Should this table be a heap? ' + db_schema_object_indexid AS details, 
+                                i.index_definition, 
+                                'N/A' AS secret_columns,
+                                i.index_usage_summary,
+                                sz.index_size_summary
+                        FROM    #IndexSanity i
+                        JOIN #IndexSanitySize sz ON i.index_sanity_id = sz.index_sanity_id
+                        WHERE    i.index_id = 0 
+                                AND (i.total_reads > 0 OR i.user_updates > 0) /*it doesn't matter that much if it's not active*/
+								AND sz.data_compression_desc LIKE '%PAGE%' /*using LIKE here because there are some variations for this value*/
+                OPTION    ( RECOMPILE );
+
 	            RAISERROR(N'check_id 48: Nonclustered indexes with a bad read to write ratio', 0,1) WITH NOWAIT;
                 INSERT    #BlitzIndexResults ( check_id, index_sanity_id, Priority, findings_group, finding, [database_name], URL, details, index_definition,
                                                secret_columns, index_usage_summary, index_size_summary )
@@ -4723,8 +4746,7 @@ BEGIN
 		FROM #ComputedColumns AS cc
 		WHERE cc.is_function = 1
 		OPTION    ( RECOMPILE );
-
-
+        
 
 	END /* IF @Mode IN (0, 4) DIAGNOSE priorities 1-100 */
 
