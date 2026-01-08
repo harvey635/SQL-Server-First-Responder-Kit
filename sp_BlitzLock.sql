@@ -1298,6 +1298,21 @@ BEGIN
            @xe OUTPUT,
            @xd OUTPUT;
 
+		/*This is a reasonable question to ask.*/
+		IF  @xe IS NULL
+		AND @xd IS NULL
+		BEGIN
+		    RAISERROR
+			(
+			    'No rows found in %s.%s.%s. Try again later.',
+				11,
+				1,
+				@TargetDatabaseName,
+				@TargetSchemaName,
+				@TargetTableName
+		    ) WITH NOWAIT;
+			RETURN;
+		END;
 
         /* Build dynamic SQL to extract the XML  */  
         IF  @xe = 1
