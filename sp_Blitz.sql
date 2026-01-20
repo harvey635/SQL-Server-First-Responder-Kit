@@ -3319,9 +3319,9 @@ AS
 										'Linked Server Configured' AS Finding ,
 										'https://www.brentozar.com/go/link' AS URL ,
 										+CASE WHEN l.remote_name = 'sa'
-											  THEN COALESCE(s.data_source, s.provider)
+											  THEN COALESCE(s.data_source, s.name, s.provider)
 												   + ' is configured as a linked server. Check its security configuration as it is connecting with sa, because any user who queries it will get admin-level permissions.'
-											  ELSE COALESCE(s.data_source, s.provider)
+											  ELSE COALESCE(s.data_source, s.name, s.provider)
 												   + ' is configured as a linked server. Check its security configuration to make sure it isn''t connecting with SA or some other bone-headed administrative login, because any user who queries it might get admin-level permissions.'
 										 END AS Details
 								FROM    sys.servers s
