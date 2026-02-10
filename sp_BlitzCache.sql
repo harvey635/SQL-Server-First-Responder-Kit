@@ -1997,10 +1997,12 @@ IF @SortOrder = 'duplicate'	/* Issue #3345 */
     SET @body += N'     INNER JOIN #duplicate_query_filter AS dqf ON x.sql_handle = dqf.sql_handle AND x.plan_handle = dqf.plan_handle AND x.creation_time = dqf.duplicate_creation_time ' + @nl ;
     END
 
+/* Removing to fix issue #3791
 IF @VersionShowsAirQuoteActualPlans = 1
     BEGIN
     SET @body += N'     CROSS APPLY sys.dm_exec_query_plan_stats(x.plan_handle) AS deqps ' + @nl ;
     END
+*/
 
 SET @body += N'        WHERE  1 = 1 ' +  @nl ;
 
