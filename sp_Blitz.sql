@@ -7079,6 +7079,62 @@ IF @ProductVersionMajor >= 10
 									  OPTION (RECOMPILE)';
 							END;
 						
+						IF NOT EXISTS ( SELECT  1
+										FROM    #SkipChecks
+										WHERE   DatabaseName IS NULL AND CheckID = 273 )
+							BEGIN
+								IF @Debug IN (1, 2) RAISERROR('Running CheckId [%d].', 0, 1, 273) WITH NOWAIT;
+
+								EXEC dbo.sp_MSforeachdb 'USE [?];
+                                        SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			                            INSERT INTO #BlitzResults
+			                            (CheckID,
+			                            DatabaseName,
+			                            Priority,
+			                            FindingsGroup,
+			                            Finding,
+			                            URL,
+			                            Details)
+		                              SELECT TOP 1 273,
+		                              N''?'',
+		                              50,
+		                              ''AI'',
+		                              ''Constitution.md Present'',
+		                              ''https://www.brentozar.com/go/constitution'',
+		                              ''The instructions in the Consitution.md extended property will influence the behavior of AI agents like Copilot, and change the advice they give to end users querying this database. To see the instructions, run the query in the URL.''
+		                              FROM [?].sys.extended_properties
+									  WHERE class = 0 AND class_desc = ''DATABASE'' AND UPPER(name) = ''CONSTITUTION.MD''
+									  OPTION (RECOMPILE)';
+							END;
+
+						IF NOT EXISTS ( SELECT  1
+										FROM    #SkipChecks
+										WHERE   DatabaseName IS NULL AND CheckID = 274 )
+							BEGIN
+								IF @Debug IN (1, 2) RAISERROR('Running CheckId [%d].', 0, 1, 274) WITH NOWAIT;
+
+								EXEC dbo.sp_MSforeachdb 'USE [?];
+                                        SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			                            INSERT INTO #BlitzResults
+			                            (CheckID,
+			                            DatabaseName,
+			                            Priority,
+			                            FindingsGroup,
+			                            Finding,
+			                            URL,
+			                            Details)
+		                              SELECT TOP 1 274,
+		                              N''?'',
+		                              50,
+		                              ''AI'',
+		                              ''Agents.md Present'',
+		                              ''https://www.brentozar.com/go/constitution'',
+		                              ''Objects in this database have extended properties defined which will influence the behavior of AI agents like Copilot, and change the advice they give to end users querying this database. To see the objects and properties, run the query in the URL.''
+		                              FROM [?].sys.extended_properties
+									  WHERE class = 1 AND UPPER(name) = ''AGENTS.MD''
+									  OPTION (RECOMPILE)';
+							END;
+
 						IF @ProductVersionMajor = 13 AND @ProductVersionMinor < 2149 --2016 CU1 has the fix in it
 							AND NOT EXISTS ( SELECT  1
 											 FROM    #SkipChecks

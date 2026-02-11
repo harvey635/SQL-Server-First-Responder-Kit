@@ -6,8 +6,8 @@ Before adding a new check, make sure to add a Github issue for it first, and hav
 
 If you want to change anything about a check - the priority, finding, URL, or ID - open a Github issue first. The relevant scripts have to be updated too.
 
-CURRENT HIGH CHECKID: 272.
-If you want to add a new one, start at 273.
+CURRENT HIGH CHECKID: 274.
+If you want to add a new one, start at 275.
 
 | Priority | FindingsGroup | Finding | URL | CheckID |
 |----------|-----------------------------|---------------------------------------------------------|------------------------------------------------------------------------|----------|
@@ -60,6 +60,8 @@ If you want to add a new one, start at 273.
 | 20 | Reliability | Unsupported Build of SQL Server | https://www.BrentOzar.com/go/unsupported | 128 |
 | 20 | Reliability | User Databases on C Drive | https://www.BrentOzar.com/go/cdrive | 26 |
 | 20 | Reliability | TempDB on C Drive | https://www.BrentOzar.com/go/cdrive | 25 |
+| 50 | AI | Constitution.md Present | https://www.BrentOzar.com/go/constitution | 273 |
+| 50 | AI | Agents.md Present | https://www.BrentOzar.com/go/constitution | 274 |
 | 50 | DBCC Events | Overall Events | https://www.BrentOzar.com/go/dbcc | 203 |
 | 50 | Performance | File Growths Slow | https://www.BrentOzar.com/go/filegrowth | 151 |
 | 50 | Performance | Instant File Initialization Not Enabled | https://www.BrentOzar.com/go/instant | 192 |
