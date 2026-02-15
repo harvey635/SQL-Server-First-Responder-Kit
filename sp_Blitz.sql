@@ -1476,7 +1476,7 @@ AS
 								WHERE   DatabaseName IS NULL AND CheckID = 256 )
 					BEGIN
 
-						IF @Debug IN (1, 2) RAISERROR('Running CheckId [%d].', 0, 1, 2) WITH NOWAIT;
+						IF @Debug IN (1, 2) RAISERROR('Running CheckId [%d].', 0, 1, 256) WITH NOWAIT;
 
 						INSERT  INTO #BlitzResults
 								( CheckID ,
@@ -1510,10 +1510,10 @@ AS
 										AND d.state NOT IN(1, 6, 10) /* Not currently offline or restoring, like log shipping databases */
 										AND d.is_in_standby = 0 /* Not a log shipping target database */
 										AND d.source_database_id IS NULL /* Excludes database snapshots */
-										--AND d.name NOT IN ( SELECT DISTINCT
-										--						  DatabaseName
-										--					FROM  #SkipChecks
-										--					WHERE CheckID IS NULL OR CheckID = 2)
+										AND d.name NOT IN ( SELECT DISTINCT
+																  DatabaseName
+															FROM  #SkipChecks
+															WHERE CheckID IS NULL OR CheckID = 256)
 										AND EXISTS (	 SELECT *
 														 FROM   msdb.dbo.backupset AS b INNER JOIN
 																msdb.dbo.backupmediafamily AS bmf
@@ -1836,7 +1836,7 @@ AS
 
                     IF NOT EXISTS ( SELECT  1
 								FROM    #SkipChecks
-								WHERE   CheckID = 2301 )
+								WHERE   DatabaseName IS NULL AND CheckID = 2301 )
 					BEGIN
 						
 						IF @Debug IN (1, 2) RAISERROR('Running CheckId [%d].', 0, 1, 2301) WITH NOWAIT;
@@ -2046,7 +2046,7 @@ AS
 					  ''Performance'' AS FindingsGroup,
 					  ''Server Triggers Enabled'' AS Finding,
 					  ''https://www.brentozar.com/go/logontriggers/'' AS URL,
-					  (''Server Trigger ['' + [name] ++ ''] is enabled.  Make sure you understand what that trigger is doing - the less work it does, the better.'') AS Details
+					  (''Server Trigger ['' + [name] + ''] is enabled.  Make sure you understand what that trigger is doing - the less work it does, the better.'') AS Details
 					  FROM sys.server_triggers
 					  WHERE is_disabled = 0 AND is_ms_shipped = 0 AND name NOT LIKE ''rds^_%'' ESCAPE ''^'' OPTION (RECOMPILE);';
 
@@ -3995,6 +3995,7 @@ AS
 											+ N' severity level memory issues reported in the last 4 hours in sys.dm_os_memory_health_history.'
 									FROM sys.dm_os_memory_health_history
 									WHERE severity_level > 1
+									AND snapshot_time >= DATEADD(HOUR, -4, GETDATE())
 									GROUP BY severity_level, severity_level_desc;
 						END;
 
@@ -4897,7 +4898,7 @@ AS
 						  WHERE name = 'is_memory_optimized_elevate_to_snapshot_on' AND object_id = OBJECT_ID('sys.databases')
                             AND SERVERPROPERTY('EngineEdition') <> 8; /* Hekaton is always enabled in Managed Instances per https://github.com/BrentOzarULTD/SQL-Server-First-Responder-Kit/issues/1919 */
 						INSERT INTO #DatabaseDefaults
-						  SELECT 'is_accelerated_database_recovery_on', 0, 145, 210, 'Accelerated Database Recovery Enabled', 'https://www.brentozar.com/go/dbdefaults', NULL
+						  SELECT 'is_accelerated_database_recovery_on', 0, 275, 210, 'Accelerated Database Recovery Enabled', 'https://www.brentozar.com/go/dbdefaults', NULL
 						  FROM sys.all_columns
 						  WHERE name = 'is_accelerated_database_recovery_on' AND object_id = OBJECT_ID('sys.databases') AND SERVERPROPERTY('EngineEdition') NOT IN (5, 8) ;
 
@@ -5505,7 +5506,7 @@ BEGIN
                     'Version Check Failed (dynamic query failure)' AS Finding ,
                     'http://FirstResponderKit.org' AS URL ,
                     'Download an updated First Responder Kit. Your version check failed due to dynamic query failure.' + @crlf +
-                    'Error: following query failed at execution (check if component [' + ISNULL(@CurrentComponentName,@CurrentComponentName) + '] is mandatory and missing)' + @crlf +
+                    'Error: following query failed at execution (check if component [' + ISNULL(@CurrentComponentName, '(unknown)') + '] is mandatory and missing)' + @crlf +
                     @tsql AS Details
                 ;
                 
@@ -5651,7 +5652,7 @@ BEGIN
                 CONTINUE;
             END;
 
-            EXEC @ExecRet = sp_executesql @tsql , N'@ExecRet INT OUTPUT, @ObjDate DATETIME OUTPUT', @ExecRet = @InnerExecRet OUTPUT, @ObjDate = @CurrentComponentVersionDate OUTPUT;
+            EXEC @ExecRet = sp_executesql @tsql , N'@ExecRet INT OUTPUT, @ObjDate DATETIME2 OUTPUT', @ExecRet = @InnerExecRet OUTPUT, @ObjDate = @CurrentComponentVersionDate OUTPUT;
 
             IF(@ExecRet <> 0)
             BEGIN
@@ -5733,10 +5734,13 @@ BEGIN
                 CONTINUE;
             END;
 
-            ELSE IF(@CurrentComponentVersionDate > @VersionDate AND @BlitzIsOutdatedComparedToOthers = 0)
+            ELSE IF(@CurrentComponentVersionDate > @VersionDate)
             BEGIN
-                SET @BlitzIsOutdatedComparedToOthers = 1;
-                RAISERROR('Procedure %s is outdated',10,1,@spBlitzFullName);
+                IF(@BlitzIsOutdatedComparedToOthers = 0)
+                BEGIN
+                    SET @BlitzIsOutdatedComparedToOthers = 1;
+                    RAISERROR('Procedure %s is outdated',10,1,@spBlitzFullName);
+                END;
                 IF(@MaximumVersionDate IS NULL OR @MaximumVersionDate < @CurrentComponentVersionDate)
                 BEGIN
                     SET @MaximumVersionDate = @CurrentComponentVersionDate;
@@ -6601,7 +6605,7 @@ IF @ProductVersionMajor >= 10
 								LEFT JOIN sys.dm_exec_sessions AS s
 								ON s.session_id = tst.session_id
 								WHERE tat.name = ''implicit_transaction''
-								GROUP BY DB_NAME(s.database_id), transaction_type, transaction_state;';
+								GROUP BY DB_NAME(s.database_id);';
 
 
 							IF @Debug = 2 AND @StringToExecute IS NOT NULL PRINT @StringToExecute;
@@ -6802,7 +6806,7 @@ IF @ProductVersionMajor >= 10
 							       'https://www.BrentOzar.com/go/ag' AS URL,
 							       ag.name + N' AG replica server ' + 
 										ar.replica_server_name + N' is ' + 
-										CASE WHEN DATEDIFF(SECOND, ISNULL (drs.last_commit_time, drs.Last_hardened_time), ps.last_commit_time) < 200 THEN (CAST(DATEDIFF(SECOND, drs.last_commit_time, ps.last_commit_time) AS NVARCHAR(10)) + N' seconds ')
+										CASE WHEN DATEDIFF(SECOND, ISNULL (drs.last_commit_time, drs.Last_hardened_time), ps.last_commit_time) < 200 THEN (CAST(DATEDIFF(SECOND, ISNULL(drs.last_commit_time, drs.Last_hardened_time), ps.last_commit_time) AS NVARCHAR(10)) + N' seconds ')
 										ELSE (CAST(DATEDIFF(MINUTE, ISNULL (drs.last_commit_time, drs.Last_hardened_time), ps.last_commit_time) AS NVARCHAR(10)) + N' minutes ') END
 										+ N' behind the primary.'
 										AS details
@@ -7411,7 +7415,7 @@ IF @ProductVersionMajor >= 10
 							          ''https://www.brentozar.com/go/repl'',
 							          (''['' + DB_NAME() + ''] has MSreplication_objects tables in it, indicating it is a replication subscriber.'')
 							          FROM [?].sys.tables
-							          WHERE name = ''dbo.MSreplication_objects''
+							          WHERE name = ''MSreplication_objects''
 									  AND ''?'' NOT IN (''master'', ''rdsadmin'')
 									  OPTION (RECOMPILE)';
 					        END;
@@ -7667,7 +7671,6 @@ IF @ProductVersionMajor >= 10
                                     INSERT INTO #Recompile
                                     SELECT DISTINCT DBName = DB_Name(), SPName = SO.name, SM.is_recompiled, ISR.SPECIFIC_SCHEMA
                                     FROM sys.sql_modules AS SM
-                                    LEFT OUTER JOIN master.sys.databases AS sDB ON SM.object_id = DB_id()
                                     LEFT OUTER JOIN dbo.sysobjects AS SO ON SM.object_id = SO.id and type = ''P''
                                     LEFT OUTER JOIN INFORMATION_SCHEMA.ROUTINES AS ISR on ISR.Routine_Name = SO.name AND ISR.SPECIFIC_CATALOG = DB_Name()
                                     WHERE SM.is_recompiled=1  OPTION (RECOMPILE); /* oh the rich irony of recompile here */
@@ -7688,7 +7691,7 @@ IF @ProductVersionMajor >= 10
                                     Details = '[' + DBName + '].[' + SPSchema + '].[' + ProcName + '] has WITH RECOMPILE in the stored procedure code, which may cause increased CPU usage due to constant recompiles of the code.',
                                     CheckID = '78'
                                 FROM #Recompile AS TR 
-								WHERE ProcName NOT LIKE 'sp_AllNightLog%' AND ProcName NOT LIKE 'sp_AskBrent%' AND ProcName NOT LIKE 'sp_Blitz%' AND ProcName NOT LIKE 'sp_PressureDetector'
+								WHERE ProcName NOT LIKE 'sp_AllNightLog%' AND ProcName NOT LIKE 'sp_AskBrent%' AND ProcName NOT LIKE 'sp_Blitz%' AND ProcName NOT LIKE 'sp_PressureDetector%'
 								  AND DBName NOT IN ('master', 'model', 'msdb', 'tempdb');
                                 DROP TABLE #Recompile;
                             END;
@@ -8828,9 +8831,9 @@ EXEC dbo.sp_MSforeachdb 'USE [?]; SET TRANSACTION ISOLATION LEVEL READ UNCOMMITT
 											 WHEN [T].[TraceFlag] = '7745' AND @QueryStoreInUse = 1 THEN '7745 enabled globally, which makes shutdowns/failovers quicker by not waiting for Query Store to flush to disk. This good idea loses you the non-flushed Query Store data.'
 											 WHEN [T].[TraceFlag] = '7745' AND  @ProductVersionMajor > 12 THEN '7745 enabled globally, which is for Query Store. None of your databases have Query Store enabled, so why do you have this turned on?'
 											 WHEN [T].[TraceFlag] = '7745' AND  @ProductVersionMajor <= 12 THEN '7745 enabled globally, which is for Query Store. Query Store does not exist on your SQL Server version, so why do you have this turned on?'
-											 WHEN [T].[TraceFlag] = '7752' AND  @ProductVersionMajor > 14 THEN '7752 enabled globally, which is for Query Store. However, it has no effect in your SQL Server version. Consider turning it off.'
 											 WHEN [T].[TraceFlag] = '7752' AND @CheckUserDatabaseObjects = 0 THEN '7752 enabled globally, which stops queries needing to wait on Query Store loading up after database recovery. @CheckUserDatabaseObjects was set to 0, so we skipped checking if any databases have Query Store enabled.'
 											 WHEN [T].[TraceFlag] = '7752' AND @QueryStoreInUse = 1 THEN '7752 enabled globally, which stops queries needing to wait on Query Store loading up after database recovery.'
+											 WHEN [T].[TraceFlag] = '7752' AND  @ProductVersionMajor > 14 THEN '7752 enabled globally, which is for Query Store. However, it has no effect in your SQL Server version. Consider turning it off.'
 											 WHEN [T].[TraceFlag] = '7752' AND  @ProductVersionMajor > 12 THEN '7752 enabled globally, which is for Query Store. None of your databases have Query Store enabled, so why do you have this turned on?'
 											 WHEN [T].[TraceFlag] = '7752' AND  @ProductVersionMajor <= 12 THEN '7752 enabled globally, which is for Query Store. Query Store does not exist on your SQL Server version, so why do you have this turned on?'
 											 WHEN [T].[TraceFlag] = '8048' THEN '8048 enabled globally, which tries to reduce CMEMTHREAD waits on servers with a lot of logical processors.'
@@ -8884,8 +8887,7 @@ EXEC dbo.sp_MSforeachdb 'USE [?]; SET TRANSACTION ISOLATION LEVEL READ UNCOMMITT
 												'Informational' AS FindingsGroup ,
 												'Recommended Trace Flag Off' AS Finding ,
 												'https://www.sqlskills.com/blogs/erin/query-store-trace-flags/' AS URL ,
-												'Trace Flag 7752 not enabled globally. It stops queries needing to wait on Query Store loading up after database recovery. It is so recommended that it is enabled by default as of SQL Server 2019.' AS Details						
-										FROM    #TraceStatus T
+												'Trace Flag 7752 not enabled globally. It stops queries needing to wait on Query Store loading up after database recovery. It is so recommended that it is enabled by default as of SQL Server 2019.' AS Details;
 							END;
 					END;
 
@@ -10295,9 +10297,9 @@ IF @ProductVersionMajor >= 10 AND  NOT EXISTS ( SELECT  1
 													+ N' Total Server Memory (GB): ' + CAST((CAST((pTotal.cntr_value / 1024.0 / 1024.0) AS DECIMAL(10,1))) AS NVARCHAR(100))
 										FROM    sys.dm_os_performance_counters pTarget
 										INNER JOIN sys.dm_os_performance_counters pTotal
-											ON pTotal.object_name LIKE 'SQLServer:Memory Manager%'
+											ON pTotal.object_name LIKE N'%Memory Manager%'
 											AND pTotal.counter_name LIKE 'Total Server Memory (KB)%'
-										WHERE pTarget.object_name LIKE 'SQLServer:Memory Manager%'
+										WHERE pTarget.object_name LIKE N'%Memory Manager%'
 										  AND pTarget.counter_name LIKE 'Target Server Memory (KB)%'
 							END
 
