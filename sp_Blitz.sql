@@ -8058,6 +8058,41 @@ EXEC dbo.sp_MSforeachdb 'USE [?]; SET TRANSACTION ISOLATION LEVEL READ UNCOMMITT
 									OPTION (RECOMPILE);';
 			END;
 
+			/* CheckID 275 - Non-Default Database Config - Automatic Tuning */
+			IF NOT EXISTS (
+					SELECT 1
+					FROM #SkipChecks
+					WHERE DatabaseName IS NULL
+						AND CheckID = 275
+					)
+                AND EXISTS (SELECT * FROM sys.all_objects WHERE name = 'database_automatic_tuning_options')
+			BEGIN
+				IF @Debug IN (1,2)
+				BEGIN
+					RAISERROR ('Running CheckId [%d].',0,1,275) WITH NOWAIT;
+				END
+
+				EXECUTE sp_MSforeachdb 'USE [?];
+					SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+                    INSERT INTO #BlitzResults (CheckID, DatabaseName, Priority, FindingsGroup, Finding, URL, Details)
+					SELECT 275 AS CheckID
+						,''?'' AS DatabaseName
+						,210 AS Priority
+						,''Non-Default Database Config'' AS FindingsGroup
+						,''Automatic Tuning'' AS Finding
+						,''https://learn.microsoft.com/en-us/sql/relational-databases/automatic-tuning/automatic-tuning'' AS URL
+                        /* Every column in sys.database_automatic_tuning_options is nullable, so we defend against that. */
+						,N''Automatic Tuning setting '' + ISNULL(dato.[name], ''unknown'') 
+                            + '' is configured to '' + ISNULL(dato.desired_state_desc, ''unknown'') + ''.''
+                            + '' This database setting is not the default.''
+                            + '' The running value is '' +  ISNULL(dato.actual_state_desc, ''unknown'') + ''.''
+                            + '' See sys.database_automatic_tuning_options for more details.'' AS Details
+					FROM sys.database_automatic_tuning_options dato
+					WHERE dato.desired_state IS NOT NULL AND dato.desired_state <> 2
+					AND ''?'' != ''rdsadmin''
+					;';
+			END; --of Check 275.
+
 			/* Check 218 - Show me the dodgy SET Options */
 			IF NOT EXISTS (
 					SELECT 1
