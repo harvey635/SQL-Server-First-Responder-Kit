@@ -6,8 +6,8 @@ Before adding a new check, make sure to add a Github issue for it first, and hav
 
 If you want to change anything about a check - the priority, finding, URL, or ID - open a Github issue first. The relevant scripts have to be updated too.
 
-CURRENT HIGH CHECKID: 274.
-If you want to add a new one, start at 275.
+CURRENT HIGH CHECKID: 275.
+If you want to add a new one, start at 276.
 
 | Priority | FindingsGroup | Finding | URL | CheckID |
 |----------|-----------------------------|---------------------------------------------------------|------------------------------------------------------------------------|----------|
@@ -275,6 +275,7 @@ If you want to add a new one, start at 275.
 | 210 | Non-Default Database Config | Snapshot Isolation Enabled | https://www.BrentOzar.com/go/dbdefaults | 132 |
 | 210 | Non-Default Database Config | Supplemental Logging Enabled | https://www.BrentOzar.com/go/dbdefaults | 131 |
 | 210 | Non-Default Database Config | Target Recovery Time Changed | https://www.BrentOzar.com/go/dbdefaults | 142 |
+| 210 | Non-Default Database Config | Accelerated Database Recovery Enabled | https://www.BrentOzar.com/go/dbdefaults | 275 |
 | 210 | Non-Default Database Config | Trustworthy Enabled | https://www.BrentOzar.com/go/dbdefaults | 137 |
 | 210 | Non-Default Database Config | Broker Enabled | https://www.BrentOzar.com/go/dbdefaults | 230 |
 | 210 | Non-Default Database Config | Honor Broker Priority Enabled | https://www.BrentOzar.com/go/dbdefaults | 231 |
