@@ -5279,7 +5279,6 @@ XML Execution Plan:
 
 Thank you.'
     FROM ##BlitzCacheProcs p
-    LEFT JOIN #ai_constitution c ON p.DatabaseName = c.DatabaseName
     WHERE p.SPID = @@SPID
     AND p.QueryPlan IS NOT NULL
     AND NOT (p.QueryType LIKE 'Procedure or Function:%'     /* This and the below exists query makes sure that we don't get advice for parent procs, only their statements, if the statements are in our result set. */
