@@ -5118,12 +5118,103 @@ OPTION (RECOMPILE);
 IF @AI >= 1
 BEGIN
     RAISERROR('Building AI prompts for query plans', 0, 1) WITH NOWAIT;
-    
+
+    /* If the target database has a database-level extended property named CONSTITUTION.md,
+       include it in the prompt as additional guidance for the LLM. */
+    IF OBJECT_ID('tempdb..#ai_constitution', 'U') IS NOT NULL
+        DROP TABLE #ai_constitution;
+
+    CREATE TABLE #ai_constitution
+    (
+        DatabaseName SYSNAME NOT NULL PRIMARY KEY,
+        Constitution NVARCHAR(MAX) NULL
+    );
+
+    DECLARE @ai_db SYSNAME,
+            @ai_sql NVARCHAR(MAX),
+            @ai_constitution NVARCHAR(MAX),
+            @ai_engine_edition INT;
+
+    SET @ai_engine_edition = CONVERT(INT, SERVERPROPERTY('EngineEdition'));
+
+    DECLARE ai_db_cursor CURSOR LOCAL FAST_FORWARD FOR
+        SELECT DISTINCT DatabaseName
+        FROM ##BlitzCacheProcs
+        WHERE SPID = @@SPID
+          AND QueryPlan IS NOT NULL
+          AND DatabaseName IS NOT NULL;
+
+    OPEN ai_db_cursor;
+
+    FETCH NEXT FROM ai_db_cursor INTO @ai_db;
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        BEGIN TRY
+            SET @ai_constitution = NULL;
+
+            /* Note: database-level extended properties live in sys.extended_properties with class=0, major_id=0, minor_id=0 */
+
+            /* Azure SQL DB does not allow cross-database three-part names. In that environment, only read from the current database. */
+            IF @ai_engine_edition = 5
+            BEGIN
+                IF @ai_db = DB_NAME()
+                    SET @ai_sql = N'SELECT @c = CAST(value AS NVARCHAR(MAX))
+                                    FROM sys.extended_properties
+                                    WHERE class = 0
+                                      AND major_id = 0
+                                      AND minor_id = 0
+                                      AND name = N''CONSTITUTION.md'';';
+                ELSE
+                    SET @ai_sql = NULL;
+            END
+            ELSE
+            BEGIN
+                SET @ai_sql = N'SELECT @c = CAST(value AS NVARCHAR(MAX))
+                                FROM ' + QUOTENAME(@ai_db) + N'.sys.extended_properties
+                                WHERE class = 0
+                                  AND major_id = 0
+                                  AND minor_id = 0
+                                  AND name = N''CONSTITUTION.md'';';
+            END;
+
+            IF @ai_sql IS NOT NULL
+            BEGIN
+                EXEC sys.sp_executesql
+                    @ai_sql,
+                    N'@c NVARCHAR(MAX) OUTPUT',
+                    @c = @ai_constitution OUTPUT;
+            END;
+
+            IF @ai_constitution IS NOT NULL AND LEN(@ai_constitution) > 0
+                INSERT INTO #ai_constitution (DatabaseName, Constitution)
+                VALUES (@ai_db, @ai_constitution);
+        END TRY
+        BEGIN CATCH
+            /* If we can't read it (permissions, offline, etc), just skip. */
+        END CATCH;
+
+        FETCH NEXT FROM ai_db_cursor INTO @ai_db;
+    END;
+
+    CLOSE ai_db_cursor;
+    DEALLOCATE ai_db_cursor;
+
     /* Update ai_prompt column with query metrics for rows that have query plans */
     UPDATE p
-    SET ai_prompt = N'Here are the performance metrics we are seeing in production, as measured by the plan cache:
+    SET ai_prompt = COALESCE(ai_prompt, N'') + N'---' + @nl + N'This database has an extended property named CONSTITUTION.md that provides additional guidance for AI analysis. Here is the content of that property:' + @nl + N'---' + @nl + c.Constitution + @nl + N'---' + @nl
+    FROM ##BlitzCacheProcs p
+    INNER JOIN #ai_constitution c ON p.DatabaseName = c.DatabaseName
+    WHERE p.SPID = @@SPID
+      AND c.Constitution IS NOT NULL
+      AND LEN(c.Constitution) > 0;
 
-Database: ' + ISNULL(DatabaseName, N'Unknown') + N'
+
+    /* Update ai_prompt column with query metrics for rows that have query plans */
+    UPDATE p
+    SET ai_prompt = COALESCE(ai_prompt, N'') + N'Here are the performance metrics we are seeing in production, as measured by the plan cache:
+
+Database: ' + ISNULL(p.DatabaseName, N'Unknown') + N'
 Query Type: ' + ISNULL(QueryType, N'Unknown') + N'
 Execution Count: ' + ISNULL(CAST(ExecutionCount AS NVARCHAR(30)), N'N/A') + N'
 Executions Per Minute: ' + ISNULL(CAST(ExecutionsPerMinute AS NVARCHAR(30)), N'N/A') + N'
